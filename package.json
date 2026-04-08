@@ -2,6 +2,7 @@
   "name": "simple-theme",
   "version": "1.0.0",
   "private": true,
+  "license": "CC-BY-NC-ND-4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

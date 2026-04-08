@@ -1,12 +1,14 @@
 /*
 Theme Name: Simple Theme
 Author: worable
-Description: 基于 Vue 3、WordPress REST API 与 @knadh/oat 的前台主题。
+Description: Vue 3 and WordPress REST API powered front-end theme.
 Version: 1.0.0
 Text Domain: simple-theme
+License: CC BY-NC-ND 4.0
+License URI: https://creativecommons.org/licenses/by-nc-nd/4.0/
 */
 
-/* 这里保留最基础的主题兜底样式，主要前台样式由 Vite 打包产物提供。 */
+/* Keep only the minimum shell styles here. Most front-end styles are provided by the Vite build output. */
 body.simple-theme-shell {
 	margin: 0;
 	min-height: 100vh;
