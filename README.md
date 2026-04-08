@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-Simple Theme 是一个基于 Vue 3、Vite 与 WordPress REST API 的前台主题。它把 WordPress 作为内容后台，前端通过主题内置的 Vue 应用渲染首页、文章、页面与归档内容。
+Simple Theme 是一个基于 Vue 3、WordPress REST API 与 @knadh/oat 的轻量主题。
 
 ## 项目特点
 
