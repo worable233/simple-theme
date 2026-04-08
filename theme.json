@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
+  "settings": {
+    "appearanceTools": true,
+    "layout": {
+      "contentSize": "840px",
+      "wideSize": "1200px"
+    },
+    "color": {
+      "palette": [
+        {
+          "slug": "paper",
+          "name": "纸白",
+          "color": "#fcfbf7"
+        },
+        {
+          "slug": "ink",
+          "name": "墨黑",
+          "color": "#1f2937"
+        },
+        {
+          "slug": "earth",
+          "name": "陶土",
+          "color": "#7b5c45"
+        },
+        {
+          "slug": "sand",
+          "name": "砂米",
+          "color": "#e7d7bc"
+        }
+      ]
+    },
+    "typography": {
+      "fontFamilies": [
+        {
+          "fontFamily": "\"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+          "name": "系统无衬线",
+          "slug": "system-sans"
+        }
+      ]
+    }
+  },
+  "styles": {
+    "color": {
+      "background": "#fcfbf7",
+      "text": "#1f2937"
+    },
+    "elements": {
+      "link": {
+        "color": {
+          "text": "#7b5c45"
+        }
+      }
+    },
+    "typography": {
+      "fontFamily": "var(--wp--preset--font-family--system-sans)",
+      "lineHeight": "1.75"
+    }
+  }
+}

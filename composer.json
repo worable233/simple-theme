@@ -1,0 +1,11 @@
+{
+    "require-dev": {
+        "wptechnix/wordpress-coding-standards": "^2.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.2"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

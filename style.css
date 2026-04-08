@@ -1,0 +1,17 @@
+/*
+Theme Name: Simple Theme
+Author: worable
+Description: 基于 Vue 3、WordPress REST API 与 @knadh/oat 的前台主题。
+Version: 1.0.0
+Text Domain: simple-theme
+*/
+
+/* 这里保留最基础的主题兜底样式，主要前台样式由 Vite 打包产物提供。 */
+body.simple-theme-shell {
+	margin: 0;
+	min-height: 100vh;
+}
+
+#app {
+	min-height: 100vh;
+}
