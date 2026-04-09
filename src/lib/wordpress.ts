@@ -1,9 +1,10 @@
 import axios from 'axios'
-import { getThemeConfig, toInternalPath } from '@/lib/theme-config'
+import { getThemeConfig, toInternalPath, toResolvablePath } from '@/lib/theme-config'
 import type {
   MenuCollectionResponse,
   ResolveResponse,
   SiteInfo,
+  WordPressComment,
   WordPressPost,
 } from '@/types/wordpress'
 
@@ -24,13 +25,14 @@ const buildRestUrl = (path = '') => {
 }
 
 export async function fetchSiteInfo() {
-  const { data } = await apiClient.get<SiteInfo>(buildRestUrl())
+  const siteInfoUrl = getThemeConfig().routes.siteInfo
+  const { data } = await apiClient.get<SiteInfo>(siteInfoUrl)
   return data
 }
 
 export async function fetchLatestPosts(limit = 6) {
   const { data } = await apiClient.get<WordPressPost[]>(
-    buildRestUrl(`wp/v2/posts?_embed&per_page=${limit}`),
+    buildRestUrl(`simple-theme/v1/home-posts?limit=${limit}`),
   )
 
   return data
@@ -57,12 +59,11 @@ export async function fetchPostCollectionByTaxonomy(taxonomy: string, termId: nu
 export async function resolveThemePath(path: string) {
   try {
     const { data } = await apiClient.post<ResolveResponse>(getThemeConfig().routes.resolveUrl, {
-      path: toInternalPath(path),
+      path: toResolvablePath(path),
     })
 
     return data
   } catch (error) {
-    // 404 在这个接口里是一个可预期结果，需要按正常数据继续交给页面渲染。
     if (axios.isAxiosError<ResolveResponse>(error) && 404 === error.response?.status) {
       return error.response.data
     }
@@ -74,6 +75,44 @@ export async function resolveThemePath(path: string) {
 export async function fetchContentByRestUrl(restUrl: string) {
   const { data } = await apiClient.get<WordPressPost>(restUrl)
   return data
+}
+
+export async function trackPostView(postId: number) {
+  const { data } = await apiClient.post<{ viewCount: number }>(
+    buildRestUrl('simple-theme/v1/track-view'),
+    { postId },
+  )
+  return data.viewCount
+}
+
+export async function fetchComments(postId: number) {
+  const { data } = await apiClient.get<{ items: WordPressComment[] }>(
+    buildRestUrl(`simple-theme/v1/comments/${postId}`),
+  )
+  return data.items
+}
+
+export async function createComment(payload: {
+  post: number
+  parent?: number
+  author_name: string
+  author_email?: string
+  author_url?: string
+  content: string
+}) {
+  const { data } = await apiClient.post<{ item: WordPressComment }>(
+    buildRestUrl('simple-theme/v1/comments'),
+    payload,
+  )
+  return data.item
+}
+
+export async function likeComment(commentId: number) {
+  const { data } = await apiClient.post<{ likes: number }>(
+    buildRestUrl('simple-theme/v1/comment-like'),
+    { commentId },
+  )
+  return data.likes
 }
 
 export function getErrorMessage(error: unknown, fallback = '请求失败，请稍后重试。') {
@@ -94,4 +133,8 @@ export function getErrorMessage(error: unknown, fallback = '请求失败，请�
   }
 
   return fallback
+}
+
+export function toRouterPathFromWpLink(value: string) {
+  return toInternalPath(value)
 }

@@ -1,15 +1,68 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHeader from '@/components/SiteHeader.vue'
 import { useSiteShell } from '@/composables/useSiteShell'
+import type { ThemeRadius, ThemeSettings, ThemeShadow } from '@/types/wordpress'
 
-const { siteInfo, primaryMenu, footerMenu, shellError, shellLoading, ensureLoaded } = useSiteShell()
+const { siteInfo, primaryMenu, shellError, shellLoading, ensureLoaded } = useSiteShell()
+
+const radiusMap: Record<ThemeRadius, { medium: string; large: string }> = {
+  small: { medium: '0.25rem', large: '0.5rem' },
+  medium: { medium: '0.375rem', large: '0.75rem' },
+  large: { medium: '0.625rem', large: '1rem' },
+}
+
+const shadowMap: Record<ThemeShadow, { small: string; medium: string; large: string }> = {
+  none: { small: 'none', medium: 'none', large: 'none' },
+  small: {
+    small: '0 1px 2px 0 rgb(0 0 0 / 0.06)',
+    medium: '0 2px 4px rgb(0 0 0 / 0.08)',
+    large: '0 6px 12px rgb(0 0 0 / 0.1)',
+  },
+  medium: {
+    small: '0 2px 4px rgb(0 0 0 / 0.1)',
+    medium: '0 6px 18px rgb(0 0 0 / 0.12)',
+    large: '0 12px 28px rgb(0 0 0 / 0.16)',
+  },
+  large: {
+    small: '0 4px 10px rgb(0 0 0 / 0.12)',
+    medium: '0 10px 24px rgb(0 0 0 / 0.16)',
+    large: '0 18px 40px rgb(0 0 0 / 0.2)',
+  },
+}
+
+function applyThemeSettings(theme?: ThemeSettings) {
+  if (!theme) {
+    return
+  }
+
+  const root = document.documentElement
+  const radius = radiusMap[theme.radius]
+  const shadow = shadowMap[theme.shadow]
+
+  root.style.setProperty('--primary', theme.primaryColor)
+  root.style.setProperty('--font-sans', theme.bodyFont)
+  root.style.setProperty('--theme-heading-font', theme.headingFont)
+  root.style.setProperty('--radius-medium', radius.medium)
+  root.style.setProperty('--radius-large', radius.large)
+  root.style.setProperty('--shadow-small', shadow.small)
+  root.style.setProperty('--shadow-medium', shadow.medium)
+  root.style.setProperty('--shadow-large', shadow.large)
+}
 
 onMounted(() => {
   void ensureLoaded()
 })
+
+watch(
+  () => siteInfo.value.theme,
+  (theme) => {
+    applyThemeSettings(theme)
+  },
+  { immediate: true, deep: true },
+)
 </script>
 
 <template>
@@ -26,6 +79,6 @@ onMounted(() => {
       </div>
     </main>
 
-    <SiteFooter :site-info="siteInfo" :menu-items="footerMenu" />
+    <SiteFooter :site-info="siteInfo" />
   </div>
 </template>

@@ -1,18 +1,23 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { isExternalUrl, toInternalPath } from '@/lib/theme-config'
+import { isExternalUrl, toInternalPath, toResolvablePath } from '@/lib/theme-config'
 import {
   fetchContentByRestUrl,
   fetchPostCollectionByTaxonomy,
   getErrorMessage,
   resolveThemePath,
+  trackPostView,
 } from '@/lib/wordpress'
 import type { ResolveResponse, WordPressPost } from '@/types/wordpress'
+import CommentsPanel from '@/components/CommentsPanel.vue'
+import { useSiteShell } from '@/composables/useSiteShell'
 import NotFoundView from '@/views/NotFoundView.vue'
+import PageView from '@/views/PageView.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { siteInfo } = useSiteShell()
 
 const loading = ref(true)
 const contentType = ref<ResolveResponse['type']>('home')
@@ -59,6 +64,9 @@ const loadCurrentContent = async () => {
 
     if (('post' === resolved.type || 'page' === resolved.type) && resolved.restUrl) {
       postData.value = await fetchContentByRestUrl(resolved.restUrl)
+      if ('post' === resolved.type && postData.value?.id) {
+        void trackPostView(postData.value.id)
+      }
       return
     }
 
@@ -113,7 +121,7 @@ const handleContentClick = (event: MouseEvent) => {
 }
 
 watch(
-  () => route.fullPath,
+  () => toResolvablePath(route.fullPath),
   () => {
     void loadCurrentContent()
   },
@@ -171,8 +179,8 @@ watch(
         这个归档下还没有可展示的文章。
       </div>
 
-      <div v-else class="row">
-        <article v-for="post in termPosts" :key="post.id" class="col-6 card post-card">
+      <div v-else class="row post-list post-list--two">
+        <article v-for="post in termPosts" :key="post.id" class="card post-card">
           <div class="vstack gap-4">
             <div class="hstack gap-2">
               <span class="badge secondary">文章</span>
@@ -193,9 +201,11 @@ watch(
       </div>
     </section>
 
-    <article v-else-if="postData" class="card article-card">
-      <div class="vstack gap-5">
-        <header class="vstack gap-3">
+    <PageView v-else-if="'page' === contentType && postData" :page-data="postData" />
+
+    <section v-else-if="postData" class="vstack gap-5">
+      <article class="card article-card post-view">
+        <header class="vstack gap-3 article-card__header">
           <div class="hstack gap-2">
             <span :class="['badge', 'page' === contentType ? 'outline' : 'secondary']">
               {{ readableContentType }}
@@ -211,13 +221,19 @@ watch(
           </p>
         </header>
 
-        <div class="wp-content" v-html="postData.content.rendered"></div>
+        <div class="wp-content oat-prose" v-html="postData.content.rendered"></div>
 
-        <footer class="hstack gap-2">
+        <footer class="hstack gap-2 article-card__footer">
           <RouterLink class="button" to="/">返回首页</RouterLink>
           <a :href="postData.link" class="button outline">打开原始链接</a>
         </footer>
-      </div>
-    </article>
+      </article>
+
+      <CommentsPanel
+        :post-id="postData.id"
+        :enabled="'open' === (postData.comment_status || 'closed')"
+        :form-settings="siteInfo.comments!"
+      />
+    </section>
   </section>
 </template>

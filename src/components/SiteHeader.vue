@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { isExternalUrl } from '@/lib/theme-config'
 import type { MenuItem, SiteInfo } from '@/types/wordpress'
 
@@ -11,6 +11,7 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const mobileMenuOpen = ref(false)
 
 const fallbackMenuItem: MenuItem = {
   id: 0,
@@ -33,105 +34,128 @@ const visibleMenuItems = computed(() => {
 
 const isCurrentPath = (path: string) => route.path === path
 
-// 响应式数据：当前主题
-const currentTheme = ref('light');
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
 
-// 页面加载时恢复用户保存的主题偏好
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
+
+const currentTheme = ref('light')
+
 onMounted(() => {
-  const savedTheme = localStorage.getItem('theme');
-  currentTheme.value = savedTheme || 'light';
-  applyTheme(currentTheme.value);
-});
+  const savedTheme = localStorage.getItem('theme')
+  currentTheme.value = savedTheme || 'light'
+  applyTheme(currentTheme.value)
+})
 
-// 主题切换功能
+watch(
+  () => route.fullPath,
+  () => {
+    closeMobileMenu()
+  },
+)
+
 function toggleTheme() {
-  currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark';
-  applyTheme(currentTheme.value);
-  localStorage.setItem('theme', currentTheme.value);
+  currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark'
+  applyTheme(currentTheme.value)
+  localStorage.setItem('theme', currentTheme.value)
 }
 
-// 应用主题到文档根元素
 function applyTheme(theme: string) {
-  document.documentElement.setAttribute('data-theme', theme);
-  document.documentElement.style.colorScheme = theme;
+  document.documentElement.setAttribute('data-theme', theme)
+  document.documentElement.style.colorScheme = theme
 }
-
 </script>
 
 <template>
-  <nav data-topnav>
-    <div class="row">
-      <div class="col-4 branding">
-        <a href="/" class="logo">{{ siteInfo.name }}</a>
+  <div class="nav">
+    <nav data-topnav class="navtop">
+      <div class="navtop__bar">
+        <a href="/" class="logo button ghost">{{ siteInfo.name }}</a>
+
+        <div class="nav-actions">
+          <span v-if="loading" class="badge secondary nav-loading">菜单加载中...</span>
+
+          <div class="nav-links desktop-only">
+            <template v-for="item in visibleMenuItems" :key="item.id">
+              <a
+                v-if="!isExternalUrl(item.url)"
+                :href="item.url"
+                :aria-current="isCurrentPath(item.path) ? 'page' : undefined"
+                class="nav-menu-toggle"
+              >
+                {{ item.title }}
+              </a>
+
+              <a
+                v-else
+                :href="item.url"
+                :target="item.target || '_blank'"
+                rel="noreferrer noopener"
+                class="nav-menu-toggle"
+              >
+                {{ item.title }}
+              </a>
+            </template>
+          </div>
+
+          <button
+            id="theme-toggle"
+            class="nav-menu-toggle desktop-only button ghost"
+            @click="toggleTheme"
+            :aria-label="currentTheme === 'dark' ? 'Dark mode' : 'Light mode'"
+          >
+            {{ currentTheme === 'dark' ? '浅色' : '深色' }}
+          </button>
+
+          <button
+            class="nav-menu-toggle mobile-only button ghost"
+            type="button"
+            :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
+            aria-label="切换导航菜单"
+            @click="toggleMobileMenu"
+          >
+            菜单
+          </button>
+        </div>
       </div>
-      
-      <div class="col-8 justify-end hstack">
-        <span v-if="loading" class="badge secondary">菜单加载中</span>
-        
-        <template v-for="item in visibleMenuItems" :key="item.id">
-          <a 
+
+      <button
+        v-show="mobileMenuOpen"
+        class="nav-mobile-overlay mobile-only"
+        type="button"
+        aria-label="关闭菜单"
+        @click="closeMobileMenu"
+      ></button>
+
+      <aside class="nav-mobile-menu mobile-only button ghost" :class="{ open: mobileMenuOpen }">
+        <template v-for="item in visibleMenuItems" :key="`mobile-${item.id}`">
+          <a
             v-if="!isExternalUrl(item.url)"
             :href="item.url"
             :aria-current="isCurrentPath(item.path) ? 'page' : undefined"
+            @click="closeMobileMenu"
           >
             {{ item.title }}
           </a>
-          
-          <a 
+
+          <a
             v-else
             :href="item.url"
             :target="item.target || '_blank'"
             rel="noreferrer noopener"
+            @click="closeMobileMenu"
           >
             {{ item.title }}
           </a>
         </template>
-        
-        <button 
-          id="theme-toggle" 
-          class="outline small"
-          @click="toggleTheme"
-          :aria-label="currentTheme === 'dark' ? 'Dark mode' : 'Light mode'"
-        >
-          <svg 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            stroke-width="2" 
-            class="icon-light"
-            :style="{ display: currentTheme === 'dark' ? 'none' : 'block' }"
-            role="img" 
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
 
-          <svg 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            stroke-width="2" 
-            class="icon-dark"
-            :style="{ display: currentTheme === 'dark' ? 'block' : 'none' }"
-            role="img" 
-            aria-hidden="true"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
+        <button class="nav-menu-toggle button ghost" @click="toggleTheme">
+          {{ currentTheme === 'dark' ? '切换浅色模式' : '切换深色模式' }}
         </button>
-      </div>
-    </div>
-  </nav>
+      </aside>
+    </nav>
+  </div>
 </template>

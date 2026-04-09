@@ -1,4 +1,4 @@
-import type { SimpleThemeConfig } from '@/types/wordpress'
+﻿import type { SimpleThemeConfig } from '@/types/wordpress'
 
 const origin = window.location.origin
 
@@ -10,6 +10,7 @@ const fallbackConfig: SimpleThemeConfig = {
   routes: {
     resolveUrl: `${origin}/wp-json/simple-theme/v1/resolve-url`,
     menusBase: `${origin}/wp-json/simple-theme/v1/navigation`,
+    siteInfo: `${origin}/wp-json/simple-theme/v1/site-info`,
   },
 }
 
@@ -27,6 +28,17 @@ const themeConfig: SimpleThemeConfig = injectedConfig
   : fallbackConfig
 
 const siteBaseUrl = new URL(themeConfig.homeUrl)
+
+const PREVIEW_QUERY_KEYS = new Set([
+  'customize_changeset_uuid',
+  'customize_theme',
+  'customize_messenger_channel',
+  'customized',
+  'nonce',
+  'url',
+  'autofocus',
+  'return',
+])
 
 const trimTrailingSlash = (value: string) => {
   if (value.length <= 1) {
@@ -73,6 +85,25 @@ export function toInternalPath(value: string) {
     return `${pathname}${targetUrl.search}${targetUrl.hash}`
   } catch {
     return value.startsWith('/') ? value : `/${value}`
+  }
+}
+
+export function toResolvablePath(value: string) {
+  const internalPath = toInternalPath(value)
+
+  try {
+    const parsedUrl = new URL(internalPath, themeConfig.homeUrl)
+
+    Array.from(parsedUrl.searchParams.keys()).forEach((key) => {
+      if (PREVIEW_QUERY_KEYS.has(key)) {
+        parsedUrl.searchParams.delete(key)
+      }
+    })
+
+    const query = parsedUrl.searchParams.toString()
+    return `${parsedUrl.pathname}${query ? `?${query}` : ''}${parsedUrl.hash}`
+  } catch {
+    return internalPath
   }
 }
 
