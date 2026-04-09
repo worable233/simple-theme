@@ -35,7 +35,17 @@ const formatDate = (dateString: string) =>
     day: 'numeric',
   }).format(new Date(dateString))
 
-const readableContentType = computed(() => ('page' === contentType.value ? '页面' : '文章'))
+const readableContentType = computed(() => {
+  if ('page' === contentType.value) {
+    return '页面'
+  }
+
+  if ('shuoshuo' === contentType.value) {
+    return '说说'
+  }
+
+  return '文章'
+})
 
 const primaryCategory = computed(() => postData.value?.categories?.[0] || readableContentType.value)
 
@@ -106,9 +116,12 @@ const loadCurrentContent = async () => {
     const resolved = await resolveThemePath(route.fullPath)
     contentType.value = resolved.type
 
-    if (('post' === resolved.type || 'page' === resolved.type) && resolved.restUrl) {
+    if (
+      ('post' === resolved.type || 'page' === resolved.type || 'shuoshuo' === resolved.type) &&
+      resolved.restUrl
+    ) {
       postData.value = await fetchContentByRestUrl(resolved.restUrl)
-      if ('post' === resolved.type && postData.value?.id) {
+      if (('post' === resolved.type || 'shuoshuo' === resolved.type) && postData.value?.id) {
         void trackPostView(postData.value.id)
       }
       return
@@ -202,7 +215,7 @@ watch(
 
           <div class="vstack gap-2">
             <h1>{{ termName }}</h1>
-            <p class="text-light">当前展示的是 {{ termTaxonomy }} 对应的 WordPress 归档内容。</p>
+            <p class="text-light">当前展示的是 {{ termTaxonomy }} 对应的归档内容。</p>
           </div>
         </div>
       </article>
@@ -233,7 +246,7 @@ watch(
 
             <div class="vstack gap-2">
               <h3 v-html="post.title.rendered"></h3>
-              <div class="post-card__excerpt text-light" v-html="post.excerpt.rendered"></div>
+              <div class="post-card__excerpt text-light" v-html="post.excerpt?.rendered"></div>
             </div>
 
             <div class="hstack gap-2">

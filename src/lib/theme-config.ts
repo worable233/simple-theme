@@ -11,6 +11,7 @@ const fallbackConfig: SimpleThemeConfig = {
     resolveUrl: `${origin}/wp-json/simple-theme/v1/resolve-url`,
     menusBase: `${origin}/wp-json/simple-theme/v1/navigation`,
     siteInfo: `${origin}/wp-json/simple-theme/v1/site-info`,
+    collection: `${origin}/wp-json/simple-theme/v1/collection`,
   },
 }
 

@@ -19,6 +19,12 @@ function simple_theme_setup() {
 	add_theme_support( 'post-thumbnails' );
 	add_theme_support( 'automatic-feed-links' );
 	add_theme_support(
+		'post-formats',
+		array(
+			'aside',
+		)
+	);
+	add_theme_support(
 		'html5',
 		array(
 			'comment-form',
@@ -39,6 +45,44 @@ function simple_theme_setup() {
 	);
 }
 add_action( 'after_setup_theme', 'simple_theme_setup' );
+
+function simple_theme_register_shuoshuo_post_type() {
+	$labels = array(
+		'name'               => __( '说说', 'simple-theme' ),
+		'singular_name'      => __( '说说', 'simple-theme' ),
+		'menu_name'          => __( '说说', 'simple-theme' ),
+		'name_admin_bar'     => __( '说说', 'simple-theme' ),
+		'add_new'            => __( '新建', 'simple-theme' ),
+		'add_new_item'       => __( '新建说说', 'simple-theme' ),
+		'new_item'           => __( '新说说', 'simple-theme' ),
+		'edit_item'          => __( '编辑说说', 'simple-theme' ),
+		'view_item'          => __( '查看说说', 'simple-theme' ),
+		'all_items'          => __( '全部说说', 'simple-theme' ),
+		'search_items'       => __( '搜索说说', 'simple-theme' ),
+		'not_found'          => __( '还没有说说内容。', 'simple-theme' ),
+		'not_found_in_trash' => __( '回收站里没有说说内容。', 'simple-theme' ),
+	);
+
+	$args = array(
+		'labels'             => $labels,
+		'public'             => true,
+		'publicly_queryable' => true,
+		'show_ui'            => true,
+		'show_in_menu'       => true,
+		'show_in_rest'       => true,
+		'query_var'          => true,
+		'rewrite'            => array( 'slug' => 'shuoshuo' ),
+		'capability_type'    => 'post',
+		'has_archive'        => true,
+		'hierarchical'       => false,
+		'menu_icon'          => 'dashicons-format-status',
+		'supports'           => array( 'title', 'editor', 'author', 'thumbnail', 'excerpt', 'comments' ),
+		'taxonomies'         => array( 'category', 'post_tag', 'post_format' ),
+	);
+
+	register_post_type( 'shuoshuo', $args );
+}
+add_action( 'init', 'simple_theme_register_shuoshuo_post_type' );
 
 /**
  * 璇诲彇 Vite manifest锛屼緵 WordPress 鏄犲皠鐪熷疄浜х墿鏂囦欢鍚嶃€? *
@@ -99,6 +143,7 @@ function simple_theme_get_frontend_config() {
 			'resolveUrl' => esc_url_raw( rest_url( 'simple-theme/v1/resolve-url' ) ),
 			'menusBase'  => esc_url_raw( rest_url( 'simple-theme/v1/navigation' ) ),
 			'siteInfo'   => esc_url_raw( rest_url( 'simple-theme/v1/site-info' ) ),
+			'collection' => esc_url_raw( rest_url( 'simple-theme/v1/collection' ) ),
 		),
 	);
 }
@@ -227,6 +272,16 @@ function simple_theme_register_rest_routes() {
 
 	register_rest_route(
 		'simple-theme/v1',
+		'/collection',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => 'simple_theme_get_collection',
+			'permission_callback' => '__return_true',
+		)
+	);
+
+	register_rest_route(
+		'simple-theme/v1',
 		'/home-posts',
 		array(
 			'methods'             => WP_REST_Server::READABLE,
@@ -256,6 +311,65 @@ function simple_theme_sanitize_bool( $value ) {
 	return ! empty( $value );
 }
 
+function simple_theme_get_theme_mod_number( $key, $default, $min, $max ) {
+	$value = (int) get_theme_mod( $key, $default );
+	return max( $min, min( $max, $value ) );
+}
+
+function simple_theme_get_post_term_names( $post_id, $taxonomy ) {
+	$terms = get_the_terms( $post_id, $taxonomy );
+	if ( ! is_array( $terms ) ) {
+		return array();
+	}
+
+	return array_values(
+		array_map(
+			static function ( $term ) {
+				return $term->name;
+			},
+			$terms
+		)
+	);
+}
+
+function simple_theme_calculate_post_stats( $post ) {
+	$content_text = wp_strip_all_tags( (string) $post->post_content );
+	$word_count   = str_word_count( $content_text ) + mb_strlen( preg_replace( '/\s+/u', '', $content_text ) ) / 2;
+	$word_count   = (int) max( 0, floor( $word_count ) );
+	$reading_time = (int) max( 1, ceil( $word_count / 260 ) );
+
+	return array(
+		'wordCount'   => $word_count,
+		'readingTime' => $reading_time,
+	);
+}
+
+function simple_theme_format_post_item( WP_Post $post ) {
+	$post_id     = (int) $post->ID;
+	$stats       = simple_theme_calculate_post_stats( $post );
+	$view_count  = (int) get_post_meta( $post_id, 'simple_theme_view_count', true );
+	$excerpt     = has_excerpt( $post_id ) ? get_the_excerpt( $post_id ) : wp_trim_words( wp_strip_all_tags( (string) $post->post_content ), 42, '…' );
+	$excerpt_html = wpautop( wp_kses_post( $excerpt ) );
+
+	return array(
+		'id'             => $post_id,
+		'date'           => get_post_time( DATE_RFC3339, true, $post_id ),
+		'modified'       => get_post_modified_time( DATE_RFC3339, true, $post_id ),
+		'link'           => get_permalink( $post_id ),
+		'type'           => get_post_type( $post_id ),
+		'comment_status' => $post->comment_status,
+		'title'          => array( 'rendered' => get_the_title( $post_id ) ),
+		'excerpt'        => array( 'rendered' => $excerpt_html ),
+		'categories'     => simple_theme_get_post_term_names( $post_id, 'category' ),
+		'tags'           => simple_theme_get_post_term_names( $post_id, 'post_tag' ),
+		'featuredImage'  => get_the_post_thumbnail_url( $post_id, 'large' ) ?: '',
+		'commentCount'   => (int) get_comments_number( $post_id ),
+		'viewCount'      => max( 0, $view_count ),
+		'wordCount'      => $stats['wordCount'],
+		'readingTime'    => $stats['readingTime'],
+	);
+}
+
 function simple_theme_get_site_info() {
 	$comment_show_email   = (bool) get_theme_mod( 'simple_theme_comment_show_email', true );
 	$comment_show_url     = (bool) get_theme_mod( 'simple_theme_comment_show_url', true );
@@ -268,27 +382,57 @@ function simple_theme_get_site_info() {
 			'url'           => home_url( '/' ),
 			'introTitle'    => (string) get_theme_mod( 'simple_theme_intro_title', get_bloginfo( 'name' ) ),
 			'introSubtitle' => (string) get_theme_mod( 'simple_theme_intro_subtitle', get_bloginfo( 'description' ) ),
-			'footerHtml'    => (string) get_theme_mod( 'simple_theme_footer_html', '<p>© ' . gmdate( 'Y' ) . ' ' . get_bloginfo( 'name' ) . '</p><p>Powered by WordPress + Simple Theme</p>' ),
-		'hero'          => array(
-			'enabled'          => (bool) get_theme_mod( 'simple_theme_hero_enabled', true ),
-			'displayMode'      => simple_theme_sanitize_choice( get_theme_mod( 'simple_theme_hero_display_mode', 'inset' ), array( 'full', 'half', 'inset' ), 'inset' ),
-			'useImage'         => (bool) get_theme_mod( 'simple_theme_hero_use_image', false ),
-			'image'            => (string) get_theme_mod( 'simple_theme_hero_image', '' ),
-			'showAvatar'       => (bool) get_theme_mod( 'simple_theme_hero_show_avatar', false ),
-			'avatar'           => (string) get_theme_mod( 'simple_theme_hero_avatar', '' ),
-			'title'            => (string) get_theme_mod( 'simple_theme_hero_title', get_bloginfo( 'name' ) ),
-				'subtitle'         => (string) get_theme_mod( 'simple_theme_hero_subtitle', get_bloginfo( 'description' ) ),
-				'typewriterEnabled'=> (bool) get_theme_mod( 'simple_theme_hero_typewriter_enabled', false ),
-				'typewriterInterval'=>(int) get_theme_mod( 'simple_theme_hero_typewriter_interval', 110 ),
-				'typewriterTexts'  => (string) get_theme_mod( 'simple_theme_hero_typewriter_texts', '' ),
+			'footerHtml'    => (string) get_theme_mod( 'simple_theme_footer_html', '<p>© ' . gmdate( 'Y' ) . ' ' . get_bloginfo( 'name' ) . '</p><p>感谢你的来访。</p>' ),
+			'footerLinks'   => array_values(
+				array_filter(
+					array(
+						array(
+							'label' => (string) get_theme_mod( 'simple_theme_footer_link_one_label', 'WordPress' ),
+							'url'   => (string) get_theme_mod( 'simple_theme_footer_link_one_url', 'https://wordpress.org/' ),
+						),
+						array(
+							'label' => (string) get_theme_mod( 'simple_theme_footer_link_two_label', get_bloginfo( 'name' ) ),
+							'url'   => (string) get_theme_mod( 'simple_theme_footer_link_two_url', home_url( '/' ) ),
+						),
+					),
+					static function ( $item ) {
+						return ! empty( $item['label'] ) && ! empty( $item['url'] );
+					}
+				)
+			),
+			'hero'          => array(
+				'enabled'           => (bool) get_theme_mod( 'simple_theme_hero_enabled', true ),
+				'displayMode'       => simple_theme_sanitize_choice( get_theme_mod( 'simple_theme_hero_display_mode', 'inset' ), array( 'full', 'half', 'inset' ), 'inset' ),
+				'useImage'          => (bool) get_theme_mod( 'simple_theme_hero_use_image', false ),
+				'image'             => (string) get_theme_mod( 'simple_theme_hero_image', '' ),
+				'showAvatar'        => (bool) get_theme_mod( 'simple_theme_hero_show_avatar', false ),
+				'avatar'            => (string) get_theme_mod( 'simple_theme_hero_avatar', '' ),
+				'title'             => (string) get_theme_mod( 'simple_theme_hero_title', get_bloginfo( 'name' ) ),
+				'subtitle'          => (string) get_theme_mod( 'simple_theme_hero_subtitle', get_bloginfo( 'description' ) ),
+				'typewriterEnabled' => (bool) get_theme_mod( 'simple_theme_hero_typewriter_enabled', false ),
+				'typewriterInterval'=> (int) get_theme_mod( 'simple_theme_hero_typewriter_interval', 110 ),
+				'typewriterTexts'   => (string) get_theme_mod( 'simple_theme_hero_typewriter_texts', '' ),
 			),
 			'theme'         => array(
 				'homePostColumns' => simple_theme_sanitize_choice( get_theme_mod( 'simple_theme_home_post_columns', '2' ), array( '1', '2', '4' ), '2' ),
-				'primaryColor'    => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_primary_color', '#574747' ) ) ?: '#574747',
-				'bodyFont'        => (string) get_theme_mod( 'simple_theme_body_font', 'system-ui, sans-serif' ),
-				'headingFont'     => (string) get_theme_mod( 'simple_theme_heading_font', 'system-ui, sans-serif' ),
+				'primaryColor'    => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_primary_color', '#8a5a44' ) ) ?: '#8a5a44',
+				'bodyFont'        => (string) get_theme_mod( 'simple_theme_body_font', '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif' ),
+				'headingFont'     => (string) get_theme_mod( 'simple_theme_heading_font', '"Noto Serif SC", "Source Han Serif SC", serif' ),
 				'radius'          => simple_theme_sanitize_choice( get_theme_mod( 'simple_theme_radius', 'medium' ), array( 'small', 'medium', 'large' ), 'medium' ),
 				'shadow'          => simple_theme_sanitize_choice( get_theme_mod( 'simple_theme_shadow', 'small' ), array( 'none', 'small', 'medium', 'large' ), 'small' ),
+				'backgroundLight' => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_background_light', '#fcfbf7' ) ) ?: '#fcfbf7',
+				'backgroundDark'  => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_background_dark', '#111315' ) ) ?: '#111315',
+				'cardLight'       => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_card_light', '#ffffff' ) ) ?: '#ffffff',
+				'cardDark'        => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_card_dark', '#171a1d' ) ) ?: '#171a1d',
+				'foregroundLight' => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_foreground_light', '#1f2937' ) ) ?: '#1f2937',
+				'foregroundDark'  => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_foreground_dark', '#f7f7f2' ) ) ?: '#f7f7f2',
+				'accentLight'     => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_accent_light', '#f3ecdf' ) ) ?: '#f3ecdf',
+				'accentDark'      => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_accent_dark', '#22282d' ) ) ?: '#22282d',
+				'borderLight'     => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_border_light', '#e5d8c5' ) ) ?: '#e5d8c5',
+				'borderDark'      => sanitize_hex_color( (string) get_theme_mod( 'simple_theme_border_dark', '#343c44' ) ) ?: '#343c44',
+				'containerMaxWidth'=> simple_theme_get_theme_mod_number( 'simple_theme_container_max_width', 1240, 960, 1680 ),
+				'articleMaxWidth' => simple_theme_get_theme_mod_number( 'simple_theme_article_max_width', 860, 680, 1200 ),
+				'heroOverlay'     => max( 0.1, min( 0.8, (float) get_theme_mod( 'simple_theme_hero_overlay', 0.34 ) ) ),
 				'cardMeta'        => array(
 					'showCategory'      => (bool) get_theme_mod( 'simple_theme_meta_show_category', true ),
 					'showPublishDate'   => (bool) get_theme_mod( 'simple_theme_meta_show_publish_date', true ),
@@ -305,6 +449,16 @@ function simple_theme_get_site_info() {
 				'showEmailField'   => $comment_show_email,
 				'showUrlField'     => $comment_show_url,
 				'showCookiesOptIn' => $comment_show_cookies,
+			),
+			'collections'   => array(
+				'postsTitle'         => (string) get_theme_mod( 'simple_theme_posts_title', '最新文章' ),
+				'postsSubtitle'      => (string) get_theme_mod( 'simple_theme_posts_subtitle', '整理过的长文、笔记与项目更新。' ),
+				'shuoshuoTitle'      => (string) get_theme_mod( 'simple_theme_shuoshuo_title', '最近说说' ),
+				'shuoshuoSubtitle'   => (string) get_theme_mod( 'simple_theme_shuoshuo_subtitle', '更轻量的动态、灵感和碎片记录。' ),
+				'showShuoshuoSection'=> (bool) get_theme_mod( 'simple_theme_show_shuoshuo_section', true ),
+				'homePostCount'      => simple_theme_get_theme_mod_number( 'simple_theme_home_post_count', 6, 3, 20 ),
+				'homeShuoshuoCount'  => simple_theme_get_theme_mod_number( 'simple_theme_home_shuoshuo_count', 3, 0, 12 ),
+				'shuoshuoPageSize'   => simple_theme_get_theme_mod_number( 'simple_theme_shuoshuo_page_size', 12, 6, 24 ),
 			),
 		),
 		200
@@ -336,16 +490,40 @@ function simple_theme_register_customizer_settings( $wp_customize ) {
 	);
 	$wp_customize->add_setting( 'simple_theme_home_post_columns', array( 'default' => '2', 'sanitize_callback' => static function( $v ) { return simple_theme_sanitize_choice( $v, array( '1', '2', '4' ), '2' ); }, 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_home_post_columns', array( 'label' => __( '首页文章列数', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'radio', 'choices' => array( '1' => __( '单列', 'simple-theme' ), '2' => __( '双列', 'simple-theme' ), '4' => __( '四列', 'simple-theme' ) ) ) );
-	$wp_customize->add_setting( 'simple_theme_primary_color', array( 'default' => '#574747', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_setting( 'simple_theme_primary_color', array( 'default' => '#8a5a44', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_primary_color', array( 'label' => __( '主题主色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
-	$wp_customize->add_setting( 'simple_theme_body_font', array( 'default' => 'system-ui, sans-serif', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_setting( 'simple_theme_body_font', array( 'default' => '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_body_font', array( 'label' => __( '正文字体（font-family）', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'text' ) );
-	$wp_customize->add_setting( 'simple_theme_heading_font', array( 'default' => 'system-ui, sans-serif', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_setting( 'simple_theme_heading_font', array( 'default' => '"Noto Serif SC", "Source Han Serif SC", serif', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_heading_font', array( 'label' => __( '标题字体（font-family）', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'text' ) );
 	$wp_customize->add_setting( 'simple_theme_radius', array( 'default' => 'medium', 'sanitize_callback' => static function( $v ) { return simple_theme_sanitize_choice( $v, array( 'small', 'medium', 'large' ), 'medium' ); }, 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_radius', array( 'label' => __( '圆角强度', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'radio', 'choices' => array( 'small' => __( '小', 'simple-theme' ), 'medium' => __( '中', 'simple-theme' ), 'large' => __( '大', 'simple-theme' ) ) ) );
 	$wp_customize->add_setting( 'simple_theme_shadow', array( 'default' => 'small', 'sanitize_callback' => static function( $v ) { return simple_theme_sanitize_choice( $v, array( 'none', 'small', 'medium', 'large' ), 'small' ); }, 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_shadow', array( 'label' => __( '阴影强度', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'radio', 'choices' => array( 'none' => __( '无', 'simple-theme' ), 'small' => __( '轻', 'simple-theme' ), 'medium' => __( '中', 'simple-theme' ), 'large' => __( '重', 'simple-theme' ) ) ) );
+	$wp_customize->add_setting( 'simple_theme_background_light', array( 'default' => '#fcfbf7', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_background_light', array( 'label' => __( '浅色背景', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_background_dark', array( 'default' => '#111315', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_background_dark', array( 'label' => __( '深色背景', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_card_light', array( 'default' => '#ffffff', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_card_light', array( 'label' => __( '浅色卡片背景', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_card_dark', array( 'default' => '#171a1d', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_card_dark', array( 'label' => __( '深色卡片背景', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_foreground_light', array( 'default' => '#1f2937', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_foreground_light', array( 'label' => __( '浅色正文颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_foreground_dark', array( 'default' => '#f7f7f2', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_foreground_dark', array( 'label' => __( '深色正文颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_accent_light', array( 'default' => '#f3ecdf', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_accent_light', array( 'label' => __( '浅色点缀颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_accent_dark', array( 'default' => '#22282d', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_accent_dark', array( 'label' => __( '深色点缀颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_border_light', array( 'default' => '#e5d8c5', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_border_light', array( 'label' => __( '浅色边框颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_border_dark', array( 'default' => '#343c44', 'sanitize_callback' => 'sanitize_hex_color', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( new WP_Customize_Color_Control( $wp_customize, 'simple_theme_border_dark', array( 'label' => __( '深色边框颜色', 'simple-theme' ), 'section' => 'simple_theme_appearance' ) ) );
+	$wp_customize->add_setting( 'simple_theme_container_max_width', array( 'default' => 1240, 'sanitize_callback' => 'absint', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_container_max_width', array( 'label' => __( '页面最大宽度（px）', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'number', 'input_attrs' => array( 'min' => 960, 'max' => 1680, 'step' => 10 ) ) );
+	$wp_customize->add_setting( 'simple_theme_article_max_width', array( 'default' => 860, 'sanitize_callback' => 'absint', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_article_max_width', array( 'label' => __( '正文最大宽度（px）', 'simple-theme' ), 'section' => 'simple_theme_appearance', 'type' => 'number', 'input_attrs' => array( 'min' => 680, 'max' => 1200, 'step' => 10 ) ) );
 
 	$wp_customize->add_section( 'simple_theme_hero', array( 'title' => __( '首页全屏封面', 'simple-theme' ), 'priority' => 32 ) );
 	$wp_customize->add_setting( 'simple_theme_hero_enabled', array( 'default' => true, 'sanitize_callback' => 'simple_theme_sanitize_bool', 'transport' => 'refresh' ) );
@@ -370,10 +548,20 @@ function simple_theme_register_customizer_settings( $wp_customize ) {
 	$wp_customize->add_control( 'simple_theme_hero_typewriter_interval', array( 'label' => __( '打字间隔（毫秒）', 'simple-theme' ), 'section' => 'simple_theme_hero', 'type' => 'number' ) );
 	$wp_customize->add_setting( 'simple_theme_hero_typewriter_texts', array( 'default' => '', 'sanitize_callback' => 'sanitize_textarea_field', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_hero_typewriter_texts', array( 'label' => __( '打字内容（每行一条）', 'simple-theme' ), 'section' => 'simple_theme_hero', 'type' => 'textarea' ) );
+	$wp_customize->add_setting( 'simple_theme_hero_overlay', array( 'default' => 0.34, 'sanitize_callback' => 'floatval', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_hero_overlay', array( 'label' => __( '封面遮罩透明度（0.1 - 0.8）', 'simple-theme' ), 'section' => 'simple_theme_hero', 'type' => 'number', 'input_attrs' => array( 'min' => 0.1, 'max' => 0.8, 'step' => 0.01 ) ) );
 
 	$wp_customize->add_section( 'simple_theme_footer', array( 'title' => __( '页脚', 'simple-theme' ), 'priority' => 33 ) );
-	$wp_customize->add_setting( 'simple_theme_footer_html', array( 'default' => '<p>© ' . gmdate( 'Y' ) . ' ' . get_bloginfo( 'name' ) . '</p><p>Powered by WordPress + Simple Theme</p>', 'sanitize_callback' => 'wp_kses_post', 'transport' => 'refresh' ) );
+	$wp_customize->add_setting( 'simple_theme_footer_html', array( 'default' => '<p>© ' . gmdate( 'Y' ) . ' ' . get_bloginfo( 'name' ) . '</p><p>感谢你的来访。</p>', 'sanitize_callback' => 'wp_kses_post', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_footer_html', array( 'label' => __( '页脚 HTML（支持简单样式）', 'simple-theme' ), 'section' => 'simple_theme_footer', 'type' => 'textarea' ) );
+	$wp_customize->add_setting( 'simple_theme_footer_link_one_label', array( 'default' => 'WordPress', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_footer_link_one_label', array( 'label' => __( '页脚按钮 1 文案', 'simple-theme' ), 'section' => 'simple_theme_footer', 'type' => 'text' ) );
+	$wp_customize->add_setting( 'simple_theme_footer_link_one_url', array( 'default' => 'https://wordpress.org/', 'sanitize_callback' => 'esc_url_raw', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_footer_link_one_url', array( 'label' => __( '页脚按钮 1 链接', 'simple-theme' ), 'section' => 'simple_theme_footer', 'type' => 'url' ) );
+	$wp_customize->add_setting( 'simple_theme_footer_link_two_label', array( 'default' => get_bloginfo( 'name' ), 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_footer_link_two_label', array( 'label' => __( '页脚按钮 2 文案', 'simple-theme' ), 'section' => 'simple_theme_footer', 'type' => 'text' ) );
+	$wp_customize->add_setting( 'simple_theme_footer_link_two_url', array( 'default' => home_url( '/' ), 'sanitize_callback' => 'esc_url_raw', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_footer_link_two_url', array( 'label' => __( '页脚按钮 2 链接', 'simple-theme' ), 'section' => 'simple_theme_footer', 'type' => 'url' ) );
 
 	$wp_customize->add_section( 'simple_theme_comment_form', array( 'title' => __( '评论表单', 'simple-theme' ), 'priority' => 34 ) );
 	$wp_customize->add_setting( 'simple_theme_comment_show_email', array( 'default' => true, 'sanitize_callback' => 'simple_theme_sanitize_bool', 'transport' => 'refresh' ) );
@@ -398,8 +586,73 @@ function simple_theme_register_customizer_settings( $wp_customize ) {
 	$wp_customize->add_control( 'simple_theme_meta_show_reading_time', array( 'label' => __( '显示预计阅读时间', 'simple-theme' ), 'section' => 'simple_theme_post_card_meta', 'type' => 'checkbox' ) );
 	$wp_customize->add_setting( 'simple_theme_meta_show_word_count', array( 'default' => false, 'sanitize_callback' => 'simple_theme_sanitize_bool', 'transport' => 'refresh' ) );
 	$wp_customize->add_control( 'simple_theme_meta_show_word_count', array( 'label' => __( '显示字数', 'simple-theme' ), 'section' => 'simple_theme_post_card_meta', 'type' => 'checkbox' ) );
+
+	$wp_customize->add_section( 'simple_theme_collections', array( 'title' => __( '文章与说说列表', 'simple-theme' ), 'priority' => 36 ) );
+	$wp_customize->add_setting( 'simple_theme_posts_title', array( 'default' => '最新文章', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_posts_title', array( 'label' => __( '文章区标题', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'text' ) );
+	$wp_customize->add_setting( 'simple_theme_posts_subtitle', array( 'default' => '整理过的长文、笔记与项目更新。', 'sanitize_callback' => 'sanitize_textarea_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_posts_subtitle', array( 'label' => __( '文章区副标题', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'textarea' ) );
+	$wp_customize->add_setting( 'simple_theme_show_shuoshuo_section', array( 'default' => true, 'sanitize_callback' => 'simple_theme_sanitize_bool', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_show_shuoshuo_section', array( 'label' => __( '首页显示说说区', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'checkbox' ) );
+	$wp_customize->add_setting( 'simple_theme_shuoshuo_title', array( 'default' => '最近说说', 'sanitize_callback' => 'sanitize_text_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_shuoshuo_title', array( 'label' => __( '说说区标题', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'text' ) );
+	$wp_customize->add_setting( 'simple_theme_shuoshuo_subtitle', array( 'default' => '更轻量的动态、灵感和碎片记录。', 'sanitize_callback' => 'sanitize_textarea_field', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_shuoshuo_subtitle', array( 'label' => __( '说说区副标题', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'textarea' ) );
+	$wp_customize->add_setting( 'simple_theme_home_post_count', array( 'default' => 6, 'sanitize_callback' => 'absint', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_home_post_count', array( 'label' => __( '首页文章数量', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'number', 'input_attrs' => array( 'min' => 3, 'max' => 20, 'step' => 1 ) ) );
+	$wp_customize->add_setting( 'simple_theme_home_shuoshuo_count', array( 'default' => 3, 'sanitize_callback' => 'absint', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_home_shuoshuo_count', array( 'label' => __( '首页说说数量', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'number', 'input_attrs' => array( 'min' => 0, 'max' => 12, 'step' => 1 ) ) );
+	$wp_customize->add_setting( 'simple_theme_shuoshuo_page_size', array( 'default' => 12, 'sanitize_callback' => 'absint', 'transport' => 'refresh' ) );
+	$wp_customize->add_control( 'simple_theme_shuoshuo_page_size', array( 'label' => __( '说说页数量', 'simple-theme' ), 'section' => 'simple_theme_collections', 'type' => 'number', 'input_attrs' => array( 'min' => 6, 'max' => 24, 'step' => 1 ) ) );
 }
 add_action( 'customize_register', 'simple_theme_register_customizer_settings' );
+
+function simple_theme_get_collection( WP_REST_Request $request ) {
+	$type     = sanitize_key( (string) $request->get_param( 'type' ) );
+	$limit    = max( 1, min( 24, (int) $request->get_param( 'limit' ) ?: 6 ) );
+	$page     = max( 1, (int) $request->get_param( 'page' ) ?: 1 );
+	$taxonomy = sanitize_key( (string) $request->get_param( 'taxonomy' ) );
+	$term_id  = (int) $request->get_param( 'termId' );
+	$allowed  = array( 'post', 'page', 'shuoshuo' );
+
+	if ( ! in_array( $type, $allowed, true ) ) {
+		return new WP_Error( 'invalid_type', '不支持的内容类型。', array( 'status' => 400 ) );
+	}
+
+	$args = array(
+		'post_type'           => $type,
+		'post_status'         => 'publish',
+		'posts_per_page'      => $limit,
+		'paged'               => $page,
+		'ignore_sticky_posts' => true,
+	);
+
+	if ( $term_id > 0 && in_array( $taxonomy, array( 'category', 'post_tag' ), true ) ) {
+		$args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+			array(
+				'taxonomy' => $taxonomy,
+				'field'    => 'term_id',
+				'terms'    => $term_id,
+			),
+		);
+	}
+
+	$query = new WP_Query( $args );
+	$items = array_map( 'simple_theme_format_post_item', $query->posts );
+
+	wp_reset_postdata();
+
+	return new WP_REST_Response(
+		array(
+			'items'      => $items,
+			'total'      => (int) $query->found_posts,
+			'totalPages' => (int) $query->max_num_pages,
+			'page'       => $page,
+			'perPage'    => $limit,
+		),
+		200
+	);
+}
 
 function simple_theme_get_home_posts( WP_REST_Request $request ) {
 	$limit = max( 1, min( 20, (int) $request->get_param( 'limit' ) ?: 6 ) );
@@ -411,36 +664,7 @@ function simple_theme_get_home_posts( WP_REST_Request $request ) {
 			'ignore_sticky_posts' => true,
 		)
 	);
-	$items = array();
-	foreach ( $query->posts as $post ) {
-		$post_id       = (int) $post->ID;
-		$category_names = array();
-		$terms         = get_the_terms( $post_id, 'category' );
-		if ( is_array( $terms ) ) {
-			foreach ( $terms as $term ) {
-				$category_names[] = $term->name;
-			}
-		}
-		$content_text = wp_strip_all_tags( (string) $post->post_content );
-		$word_count   = str_word_count( $content_text ) + mb_strlen( preg_replace( '/\s+/u', '', $content_text ) ) / 2;
-		$word_count   = (int) max( 0, floor( $word_count ) );
-		$reading_time = (int) max( 1, ceil( $word_count / 260 ) );
-		$view_count   = (int) get_post_meta( $post_id, 'simple_theme_view_count', true );
-
-		$items[] = array(
-			'id'           => $post_id,
-			'date'         => get_post_time( DATE_RFC3339, true, $post_id ),
-			'modified'     => get_post_modified_time( DATE_RFC3339, true, $post_id ),
-			'link'         => get_permalink( $post_id ),
-			'title'        => array( 'rendered' => get_the_title( $post_id ) ),
-			'excerpt'      => array( 'rendered' => get_the_excerpt( $post_id ) ),
-			'categories'   => $category_names,
-			'commentCount' => (int) get_comments_number( $post_id ),
-			'viewCount'    => max( 0, $view_count ),
-			'wordCount'    => $word_count,
-			'readingTime'  => $reading_time,
-		);
-	}
+	$items = array_map( 'simple_theme_format_post_item', $query->posts );
 	wp_reset_postdata();
 	return new WP_REST_Response( $items, 200 );
 }

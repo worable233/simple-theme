@@ -2,6 +2,7 @@ import axios from 'axios'
 import { getThemeConfig, toInternalPath, toResolvablePath } from '@/lib/theme-config'
 import type {
   MenuCollectionResponse,
+  PagedPostCollection,
   ResolveResponse,
   SiteInfo,
   WordPressComment,
@@ -31,10 +32,32 @@ export async function fetchSiteInfo() {
 }
 
 export async function fetchLatestPosts(limit = 6) {
-  const { data } = await apiClient.get<WordPressPost[]>(
-    buildRestUrl(`simple-theme/v1/home-posts?limit=${limit}`),
-  )
+  const { items } = await fetchCollection('post', { limit })
+  return items
+}
 
+export async function fetchCollection(
+  type: 'post' | 'page' | 'shuoshuo',
+  options?: {
+    limit?: number
+    page?: number
+    taxonomy?: string
+    termId?: number
+  },
+) {
+  const collectionUrl = getThemeConfig().routes.collection.replace(/\/+$/, '')
+  const params = new URLSearchParams({
+    type,
+    limit: String(options?.limit || 6),
+    page: String(options?.page || 1),
+  })
+
+  if (options?.taxonomy && options.termId) {
+    params.set('taxonomy', options.taxonomy)
+    params.set('termId', String(options.termId))
+  }
+
+  const { data } = await apiClient.get<PagedPostCollection>(`${collectionUrl}?${params.toString()}`)
   return data
 }
 
@@ -47,13 +70,14 @@ export async function fetchNavigation(location: string) {
   return data.items
 }
 
-export async function fetchPostCollectionByTaxonomy(taxonomy: string, termId: number) {
-  const queryKey = 'category' === taxonomy ? 'categories' : 'tags'
-  const { data } = await apiClient.get<WordPressPost[]>(
-    buildRestUrl(`wp/v2/posts?_embed&${queryKey}=${termId}`),
-  )
+export async function fetchPostCollectionByTaxonomy(taxonomy: string, termId: number, limit = 12) {
+  const { items } = await fetchCollection('post', {
+    taxonomy,
+    termId,
+    limit,
+  })
 
-  return data
+  return items
 }
 
 export async function resolveThemePath(path: string) {
@@ -64,7 +88,7 @@ export async function resolveThemePath(path: string) {
 
     return data
   } catch (error) {
-    if (axios.isAxiosError<ResolveResponse>(error) && 404 === error.response?.status) {
+    if (axios.isAxiosError<ResolveResponse>(error) && error.response?.status === 404) {
       return error.response.data
     }
 
@@ -119,7 +143,7 @@ export function getErrorMessage(error: unknown, fallback = '请求失败，请�
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message
 
-    if ('string' === typeof message && message.trim()) {
+    if (typeof message === 'string' && message.trim()) {
       return message
     }
 

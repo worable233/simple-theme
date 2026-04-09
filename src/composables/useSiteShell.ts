@@ -1,14 +1,27 @@
 import { computed, ref } from 'vue'
 import { fetchNavigation, fetchSiteInfo, getErrorMessage } from '@/lib/wordpress'
-import type { HeroSettings, MenuItem, SiteInfo, ThemeSettings } from '@/types/wordpress'
+import type { CollectionSettings, HeroSettings, MenuItem, SiteInfo, ThemeSettings } from '@/types/wordpress'
 
 const fallbackThemeSettings: ThemeSettings = {
   homePostColumns: '2',
-  primaryColor: '#574747',
-  bodyFont: 'system-ui, sans-serif',
-  headingFont: 'system-ui, sans-serif',
+  primaryColor: '#8a5a44',
+  bodyFont: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+  headingFont: '"Noto Serif SC", "Source Han Serif SC", serif',
   radius: 'medium',
   shadow: 'small',
+  backgroundLight: '#fcfbf7',
+  backgroundDark: '#111315',
+  cardLight: '#ffffff',
+  cardDark: '#171a1d',
+  foregroundLight: '#1f2937',
+  foregroundDark: '#f7f7f2',
+  accentLight: '#f3ecdf',
+  accentDark: '#22282d',
+  borderLight: '#e5d8c5',
+  borderDark: '#343c44',
+  containerMaxWidth: 1240,
+  articleMaxWidth: 860,
+  heroOverlay: 0.34,
   cardMeta: {
     showCategory: true,
     showPublishDate: true,
@@ -27,20 +40,35 @@ const fallbackHeroSettings: HeroSettings = {
   image: '',
   showAvatar: false,
   avatar: '',
-  title: 'Simple Theme',
-  subtitle: '使用 Vue 3 与 Oat 驱动的 WordPress 前台主题。',
+  title: '欢迎来到我的站点',
+  subtitle: '在这里发布文章、页面与说说内容。',
   typewriterEnabled: false,
   typewriterInterval: 110,
   typewriterTexts: '',
 }
 
+const fallbackCollectionSettings: CollectionSettings = {
+  postsTitle: '最新文章',
+  postsSubtitle: '整理过的长文、笔记与项目更新。',
+  shuoshuoTitle: '最近说说',
+  shuoshuoSubtitle: '更轻量的动态、灵感和碎片记录。',
+  showShuoshuoSection: true,
+  homePostCount: 6,
+  homeShuoshuoCount: 3,
+  shuoshuoPageSize: 12,
+}
+
 const fallbackSiteInfo: SiteInfo = {
-  name: 'Simple Theme',
-  description: '使用 Vue 3 与 Oat 驱动的 WordPress 前台主题。',
+  name: '我的站点',
+  description: '一个支持文章、页面和说说内容的现代化主题。',
   url: window.location.origin,
-  introTitle: 'Simple Theme',
-  introSubtitle: '使用 Vue 3 与 Oat 驱动的 WordPress 前台主题。',
-  footerHtml: '<p>© 2026 Simple Theme</p><p>Powered by WordPress + Simple Theme</p>',
+  introTitle: '我的站点',
+  introSubtitle: '欢迎来到这里，看看最近更新了什么。',
+  footerHtml: '<p>© 2026 我的站点</p><p>感谢你的来访。</p>',
+  footerLinks: [
+    { label: 'WordPress', url: 'https://wordpress.org/' },
+    { label: '站点首页', url: window.location.origin },
+  ],
   comments: {
     requireNameEmail: true,
     registrationOnly: false,
@@ -50,6 +78,7 @@ const fallbackSiteInfo: SiteInfo = {
   },
   hero: fallbackHeroSettings,
   theme: fallbackThemeSettings,
+  collections: fallbackCollectionSettings,
 }
 
 const siteInfo = ref<SiteInfo>(fallbackSiteInfo)
@@ -90,6 +119,10 @@ export function useSiteShell() {
             ...nextSiteInfo.theme?.cardMeta,
           },
         },
+        collections: {
+          ...fallbackCollectionSettings,
+          ...nextSiteInfo.collections,
+        },
         comments: {
           requireNameEmail:
             nextSiteInfo.comments?.requireNameEmail ?? fallbackSiteInfo.comments!.requireNameEmail,
@@ -102,7 +135,12 @@ export function useSiteShell() {
           showCookiesOptIn:
             nextSiteInfo.comments?.showCookiesOptIn ?? fallbackSiteInfo.comments!.showCookiesOptIn,
         },
+        footerLinks:
+          nextSiteInfo.footerLinks && nextSiteInfo.footerLinks.length > 0
+            ? nextSiteInfo.footerLinks
+            : fallbackSiteInfo.footerLinks,
       }
+
       primaryMenu.value = nextPrimaryMenu
       footerMenu.value = nextFooterMenu
       shellLoadedState.value = true

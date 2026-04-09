@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { isExternalUrl } from '@/lib/theme-config'
@@ -13,23 +13,35 @@ const props = defineProps<{
 const route = useRoute()
 const mobileMenuOpen = ref(false)
 
-const fallbackMenuItem: MenuItem = {
-  id: 0,
-  title: '棣栭〉',
-  url: '/',
-  path: '/',
-  target: '',
-  description: '',
-  current: false,
-  children: [],
-}
+const fallbackMenuItems: MenuItem[] = [
+  {
+    id: 0,
+    title: '首页',
+    url: '/',
+    path: '/',
+    target: '',
+    description: '',
+    current: false,
+    children: [],
+  },
+  {
+    id: -1,
+    title: '说说',
+    url: '/shuoshuo',
+    path: '/shuoshuo',
+    target: '',
+    description: '',
+    current: false,
+    children: [],
+  },
+]
 
 const visibleMenuItems = computed(() => {
   if (props.menuItems.length > 0) {
     return props.menuItems
   }
 
-  return [fallbackMenuItem]
+  return fallbackMenuItems
 })
 
 const isCurrentPath = (path: string) => route.path === path
@@ -83,7 +95,7 @@ function applyTheme(theme: string) {
         <a href="/" class="logo button ghost">{{ siteInfo.name }}</a>
 
         <div class="nav-actions">
-          <span v-if="loading" class="badge secondary nav-loading">正在加载..</span>
+          <span v-if="loading" class="badge secondary nav-loading">菜单加载中</span>
 
           <div class="nav-links desktop-only">
             <template v-for="item in visibleMenuItems" :key="item.id">
@@ -91,7 +103,7 @@ function applyTheme(theme: string) {
                 v-if="!isExternalUrl(item.url)"
                 :href="item.url"
                 :aria-current="isCurrentPath(item.path) ? 'page' : undefined"
-                class="nav-menu-toggle"
+                class="nav-menu-toggle button ghost small"
               >
                 {{ item.title }}
               </a>
@@ -101,7 +113,7 @@ function applyTheme(theme: string) {
                 :href="item.url"
                 :target="item.target || '_blank'"
                 rel="noreferrer noopener"
-                class="nav-menu-toggle"
+                class="nav-menu-toggle button ghost small"
               >
                 {{ item.title }}
               </a>
@@ -110,9 +122,9 @@ function applyTheme(theme: string) {
 
           <button
             id="theme-toggle"
-            class="nav-menu-toggle desktop-only outline small"
+            class="nav-menu-toggle desktop-only button ghost small"
             @click="toggleTheme"
-            :aria-label="currentTheme === 'dark' ? 'Dark mode' : 'Light mode'"
+            :aria-label="currentTheme === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
           >
             <svg
               width="16"
@@ -136,6 +148,7 @@ function applyTheme(theme: string) {
               <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
             </svg>
+
             <svg
               width="16"
               height="16"
@@ -153,13 +166,13 @@ function applyTheme(theme: string) {
           </button>
 
           <button
-            class="nav-menu-toggle mobile-only button ghost"
+            class="nav-menu-toggle mobile-only button ghost small"
             type="button"
             :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
-            aria-label="鍒囨崲瀵艰埅鑿滃崟"
+            aria-label="切换导航菜单"
             @click="toggleMobileMenu"
           >
-            鑿滃崟
+            菜单
           </button>
         </div>
       </div>
@@ -168,16 +181,17 @@ function applyTheme(theme: string) {
         v-show="mobileMenuOpen"
         class="nav-mobile-overlay mobile-only"
         type="button"
-        aria-label="鍏抽棴鑿滃崟"
+        aria-label="关闭菜单"
         @click="closeMobileMenu"
       ></button>
 
-      <aside class="nav-mobile-menu mobile-only button ghost" :class="{ open: mobileMenuOpen }">
+      <aside class="nav-mobile-menu mobile-only" :class="{ open: mobileMenuOpen }">
         <template v-for="item in visibleMenuItems" :key="`mobile-${item.id}`">
           <a
             v-if="!isExternalUrl(item.url)"
             :href="item.url"
             :aria-current="isCurrentPath(item.path) ? 'page' : undefined"
+            class="button ghost small"
             @click="closeMobileMenu"
           >
             {{ item.title }}
@@ -188,14 +202,15 @@ function applyTheme(theme: string) {
             :href="item.url"
             :target="item.target || '_blank'"
             rel="noreferrer noopener"
+            class="button ghost small"
             @click="closeMobileMenu"
           >
             {{ item.title }}
           </a>
         </template>
 
-        <button class="nav-menu-toggle button ghost" @click="toggleTheme">
-          {{ currentTheme === 'dark' ? '鍒囨崲娴呰壊妯″紡' : '鍒囨崲娣辫壊妯″紡' }}
+        <button class="nav-menu-toggle button ghost small" @click="toggleTheme">
+          {{ currentTheme === 'dark' ? '切换浅色模式' : '切换深色模式' }}
         </button>
       </aside>
     </nav>

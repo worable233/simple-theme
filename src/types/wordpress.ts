@@ -7,6 +7,7 @@ export interface SimpleThemeConfig {
     resolveUrl: string
     menusBase: string
     siteInfo: string
+    collection: string
   }
 }
 
@@ -21,6 +22,19 @@ export interface ThemeSettings {
   headingFont: string
   radius: ThemeRadius
   shadow: ThemeShadow
+  backgroundLight: string
+  backgroundDark: string
+  cardLight: string
+  cardDark: string
+  foregroundLight: string
+  foregroundDark: string
+  accentLight: string
+  accentDark: string
+  borderLight: string
+  borderDark: string
+  containerMaxWidth: number
+  articleMaxWidth: number
+  heroOverlay: number
   cardMeta?: {
     showCategory: boolean
     showPublishDate: boolean
@@ -54,6 +68,22 @@ export interface CommentFormSettings {
   showCookiesOptIn: boolean
 }
 
+export interface FooterLink {
+  label: string
+  url: string
+}
+
+export interface CollectionSettings {
+  postsTitle: string
+  postsSubtitle: string
+  shuoshuoTitle: string
+  shuoshuoSubtitle: string
+  showShuoshuoSection: boolean
+  homePostCount: number
+  homeShuoshuoCount: number
+  shuoshuoPageSize: number
+}
+
 export interface SiteInfo {
   name: string
   description: string
@@ -61,9 +91,11 @@ export interface SiteInfo {
   introTitle?: string
   introSubtitle?: string
   footerHtml?: string
+  footerLinks?: FooterLink[]
   hero?: HeroSettings
   comments?: CommentFormSettings
   theme?: ThemeSettings
+  collections?: CollectionSettings
 }
 
 export interface RenderedText {
@@ -78,13 +110,16 @@ export interface WordPressPost {
   type: string
   comment_status?: 'open' | 'closed'
   categories?: string[]
+  tags?: string[]
+  featuredImage?: string
   commentCount?: number
   viewCount?: number
   readingTime?: number
   wordCount?: number
   title: RenderedText
-  excerpt: RenderedText
-  content: RenderedText
+  excerpt?: RenderedText
+  content?: RenderedText
+  _embedded?: Record<string, unknown>
 }
 
 export interface CommentMetaInfo {
@@ -120,8 +155,16 @@ export interface MenuCollectionResponse {
   items: MenuItem[]
 }
 
+export interface PagedPostCollection {
+  items: WordPressPost[]
+  total: number
+  totalPages: number
+  page: number
+  perPage: number
+}
+
 export interface ResolveResponse {
-  type: 'home' | 'post' | 'page' | 'term' | '404' | 'error'
+  type: 'home' | 'post' | 'page' | 'term' | '404' | 'error' | 'shuoshuo'
   id?: number
   name?: string
   taxonomy?: string

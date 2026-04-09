@@ -6,7 +6,8 @@ import SiteHeader from '@/components/SiteHeader.vue'
 import { useSiteShell } from '@/composables/useSiteShell'
 import type { ThemeRadius, ThemeSettings, ThemeShadow } from '@/types/wordpress'
 
-const { siteInfo, primaryMenu, shellError, shellLoading, ensureLoaded } = useSiteShell()
+const { siteInfo, primaryMenu, footerMenu, shellError, shellLoading, ensureLoaded } =
+  useSiteShell()
 
 const radiusMap: Record<ThemeRadius, { medium: string; large: string }> = {
   small: { medium: '0.25rem', large: '0.5rem' },
@@ -50,6 +51,19 @@ function applyThemeSettings(theme?: ThemeSettings) {
   root.style.setProperty('--shadow-small', shadow.small)
   root.style.setProperty('--shadow-medium', shadow.medium)
   root.style.setProperty('--shadow-large', shadow.large)
+  root.style.setProperty('--theme-bg-light', theme.backgroundLight)
+  root.style.setProperty('--theme-bg-dark', theme.backgroundDark)
+  root.style.setProperty('--theme-card-light', theme.cardLight)
+  root.style.setProperty('--theme-card-dark', theme.cardDark)
+  root.style.setProperty('--theme-fg-light', theme.foregroundLight)
+  root.style.setProperty('--theme-fg-dark', theme.foregroundDark)
+  root.style.setProperty('--theme-accent-light', theme.accentLight)
+  root.style.setProperty('--theme-accent-dark', theme.accentDark)
+  root.style.setProperty('--theme-border-light', theme.borderLight)
+  root.style.setProperty('--theme-border-dark', theme.borderDark)
+  root.style.setProperty('--container-max', `${theme.containerMaxWidth}px`)
+  root.style.setProperty('--article-max-width', `${theme.articleMaxWidth}px`)
+  root.style.setProperty('--hero-overlay-opacity', String(theme.heroOverlay))
 }
 
 onMounted(() => {
@@ -79,6 +93,6 @@ watch(
       </div>
     </main>
 
-    <SiteFooter :site-info="siteInfo" />
+    <SiteFooter :site-info="siteInfo" :menu-items="footerMenu" />
   </div>
 </template>

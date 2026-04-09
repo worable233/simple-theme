@@ -8,8 +8,8 @@ import { RouterLink } from 'vue-router'
       <div class="vstack gap-4 align-center">
         <span class="badge danger">404</span>
         <h1>页面不存在</h1>
-        <p class="text-light">这个地址没有匹配到 WordPress 内容，请检查链接是否正确。</p>
-        <RouterLink class="button" to="/">返回首页</RouterLink>
+        <p class="text-light">这个地址没有匹配到站点内容，请检查链接是否正确。</p>
+        <RouterLink class="button ghost" to="/">返回首页</RouterLink>
       </div>
     </article>
   </section>
