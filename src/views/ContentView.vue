@@ -37,6 +37,50 @@ const formatDate = (dateString: string) =>
 
 const readableContentType = computed(() => ('page' === contentType.value ? '页面' : '文章'))
 
+const primaryCategory = computed(() => postData.value?.categories?.[0] || readableContentType.value)
+
+const postTags = computed(() => {
+  const post = postData.value as (WordPressPost & { _embedded?: Record<string, unknown> }) | null
+  const terms = (post?._embedded?.['wp:term'] as Array<Array<{ taxonomy?: string; name?: string }>> | undefined) || []
+  for (const group of terms) {
+    const tags = group
+      .filter((term) => term?.taxonomy === 'post_tag' && typeof term.name === 'string')
+      .map((term) => term.name as string)
+    if (tags.length > 0) {
+      return tags
+    }
+  }
+  return [] as string[]
+})
+
+const articleHeroClass = computed(() => {
+  const mode = siteInfo.value.hero?.displayMode || 'inset'
+  return mode === 'inset' ? 'article-hero--inset' : 'hero-cover--half'
+})
+
+const articleHeroStyle = computed(() => {
+  const hero = siteInfo.value.hero
+  const post = postData.value as (WordPressPost & { _embedded?: Record<string, unknown> }) | null
+  const featuredUrl =
+    (post?._embedded?.['wp:featuredmedia'] as Array<{ source_url?: string }> | undefined)?.[0]?.source_url || ''
+
+  if (!hero?.useImage) {
+    return { background: 'transparent' }
+  }
+
+  const image = featuredUrl || hero.image || ''
+  if (!image) {
+    return { background: 'transparent' }
+  }
+
+  return {
+    backgroundImage: `linear-gradient(rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.32)), url(${image})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    color: '#fff',
+  }
+})
+
 const loadTermPosts = async (taxonomy: string, id: number) => {
   termPostsLoading.value = true
   termPosts.value = []
@@ -183,7 +227,7 @@ watch(
         <article v-for="post in termPosts" :key="post.id" class="card post-card">
           <div class="vstack gap-4">
             <div class="hstack gap-2">
-              <span class="badge secondary">文章</span>
+              <span class="badge secondary">{{ post.categories?.[0] || '文章' }}</span>
               <time class="text-light" :datetime="post.date">{{ formatDate(post.date) }}</time>
             </div>
 
@@ -204,16 +248,22 @@ watch(
     <PageView v-else-if="'page' === contentType && postData" :page-data="postData" />
 
     <section v-else-if="postData" class="vstack gap-5">
+      <section class="hero-cover article-hero" :class="articleHeroClass" :style="articleHeroStyle">
+        <div class="hero-cover__inner article-hero__inner">
+          <div class="vstack gap-2 article-hero__title">
+            <span class="badge secondary">{{ primaryCategory }}</span>
+            <h1 v-html="postData.title.rendered"></h1>
+          </div>
+        </div>
+      </section>
+
       <article class="card article-card post-view">
         <header class="vstack gap-3 article-card__header">
-          <div class="hstack gap-2">
-            <span :class="['badge', 'page' === contentType ? 'outline' : 'secondary']">
-              {{ readableContentType }}
-            </span>
-            <time class="text-light" :datetime="postData.date">{{ formatDate(postData.date) }}</time>
+          <div class="hstack gap-2 post-meta-row">
+            <time class="text-light" :datetime="postData.date">发布 {{ formatDate(postData.date) }}</time>
+            <span v-if="postData.modified" class="text-light">修改 {{ formatDate(postData.modified) }}</span>
+            <span v-for="tag in postTags" :key="tag" class="badge outline">#{{ tag }}</span>
           </div>
-
-          <h1 v-html="postData.title.rendered"></h1>
 
           <p class="text-light article-card__permalink">
             当前链接：

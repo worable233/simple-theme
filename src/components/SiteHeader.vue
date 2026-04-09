@@ -49,7 +49,9 @@ onMounted(() => {
   if (savedTheme === 'light' || savedTheme === 'dark') {
     currentTheme.value = savedTheme
   } else {
-    currentTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    currentTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light'
   }
   applyTheme(currentTheme.value)
 })
@@ -81,7 +83,7 @@ function applyTheme(theme: string) {
         <a href="/" class="logo button ghost">{{ siteInfo.name }}</a>
 
         <div class="nav-actions">
-          <span v-if="loading" class="badge secondary nav-loading">鑿滃崟鍔犺浇涓?..</span>
+          <span v-if="loading" class="badge secondary nav-loading">正在加载..</span>
 
           <div class="nav-links desktop-only">
             <template v-for="item in visibleMenuItems" :key="item.id">
@@ -199,4 +201,3 @@ function applyTheme(theme: string) {
     </nav>
   </div>
 </template>
-

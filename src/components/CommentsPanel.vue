@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import CommentsTreeItem from '@/components/CommentsTreeItem.vue'
 import { createComment, fetchComments, getErrorMessage } from '@/lib/wordpress'
@@ -20,7 +20,6 @@ const authorEmail = ref('')
 const authorUrl = ref('')
 const content = ref('')
 const cookiesConsent = ref(false)
-const notifyByEmail = ref(false)
 const parentCommentId = ref(0)
 
 function applyLike(items: WordPressComment[], id: number, likes: number): boolean {
@@ -42,8 +41,16 @@ function handleLiked(payload: { id: number; likes: number }) {
 }
 
 function showToast(message: string, variant: 'info' | 'success' | 'danger' | 'warning' = 'info', duration = 2800) {
-  const ot = (window as unknown as { ot?: { toast?: (msg: string, title?: string, opts?: { variant?: string; duration?: number }) => void } }).ot
+  const ot = (
+    window as unknown as {
+      ot?: { toast?: (msg: string, title?: string, opts?: { variant?: string; duration?: number }) => void }
+    }
+  ).ot
   ot?.toast?.(message, '评论通知', { variant, duration })
+}
+
+function handleLikeError(message: string) {
+  showToast(message, 'warning', 3200)
 }
 
 async function loadComments() {
@@ -84,7 +91,6 @@ async function submitComment() {
   }
 
   submitting.value = true
-  showToast('发送中...', 'info', 1500)
 
   try {
     await createComment({
@@ -104,11 +110,11 @@ async function submitComment() {
 
     content.value = ''
     parentCommentId.value = 0
-    showToast('发送成功，评论正在等待审核。', 'success', 3800)
+    showToast('评论提交成功，等待审核。', 'success', 3200)
     await loadComments()
   } catch (error) {
     errorMessage.value = getErrorMessage(error, '评论提交失败，请稍后重试。')
-    showToast('发送失败，请稍后重试。', 'danger', 4200)
+    showToast('提交失败，请稍后重试。', 'danger', 3600)
   } finally {
     submitting.value = false
   }
@@ -133,9 +139,9 @@ onMounted(() => {
 
 <template>
   <section class="card comments-panel">
-    <header class="vstack gap-2">
+    <header class="vstack gap-1">
       <h3>评论区</h3>
-      <p class="text-light">欢迎讨论，支持嵌套回复与点赞。</p>
+      <p class="text-light">欢迎交流，点赞已限制为每条评论每人一次。</p>
     </header>
 
     <div v-if="!enabled" role="alert" data-variant="warning">当前文章未开启评论。</div>
@@ -143,7 +149,67 @@ onMounted(() => {
       站点设置为仅注册用户可评论，请先登录。
     </div>
 
-    <div v-else class="vstack gap-4">
+    <div v-else class="vstack gap-3">
+      <form class="comments-form comments-form--compact" @submit.prevent="submitComment">
+        <div class="hstack gap-2 comments-form__title-row">
+          <h4>{{ parentCommentId ? `回复 #${parentCommentId}` : '发表评论' }}</h4>
+          <button
+            v-if="parentCommentId"
+            type="button"
+            class="button ghost small"
+            @click="parentCommentId = 0"
+          >
+            取消回复
+          </button>
+        </div>
+
+        <div class="row comments-form-row">
+          <div class="col-4">
+            <label>
+              昵称
+              <input v-model="authorName" type="text" maxlength="40" required />
+            </label>
+          </div>
+
+          <div v-if="formSettings.showEmailField" class="col-4">
+            <label>
+              邮箱
+              <input
+                v-model="authorEmail"
+                type="email"
+                maxlength="80"
+                :required="formSettings.requireNameEmail"
+              />
+            </label>
+          </div>
+
+          <div v-if="formSettings.showUrlField" class="col-4">
+            <label>
+              网址
+              <input v-model="authorUrl" type="url" maxlength="120" placeholder="https://" />
+            </label>
+          </div>
+
+          <div class="col-12">
+            <label>
+              评论内容
+              <textarea v-model="content" rows="3" required></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="hstack justify-between comments-form__footer">
+          <label v-if="formSettings.showCookiesOptIn" class="comments-form__remember">
+            <input v-model="cookiesConsent" type="checkbox" />
+            记住我的信息
+          </label>
+
+          <button type="submit" class="button small" :disabled="submitting">
+            {{ submitting ? '提交中...' : '提交评论' }}
+          </button>
+        </div>
+      </form>
+
       <div v-if="loading" class="vstack gap-2">
         <div class="skeleton line" role="status"></div>
         <div class="skeleton line" role="status"></div>
@@ -162,69 +228,9 @@ onMounted(() => {
           :item="item"
           @reply="useReply"
           @liked="handleLiked"
+          @like-error="handleLikeError"
         />
       </ol>
-
-      <form class="vstack gap-3 comments-form" @submit.prevent="submitComment">
-        <h4>{{ parentCommentId ? `回复评论 #${parentCommentId}` : '发表评论' }}</h4>
-
-        <div class="row comments-form-row">
-          <div class="col-6">
-            <label>
-              昵称
-              <input v-model="authorName" type="text" maxlength="40" required />
-            </label>
-          </div>
-
-          <div v-if="formSettings.showEmailField" class="col-6">
-            <label>
-              邮箱
-              <input
-                v-model="authorEmail"
-                type="email"
-                maxlength="80"
-                :required="formSettings.requireNameEmail"
-              />
-            </label>
-          </div>
-
-          <div v-if="formSettings.showUrlField" class="col-12">
-            <label>
-              网址
-              <input v-model="authorUrl" type="url" maxlength="120" placeholder="https://" />
-            </label>
-          </div>
-        </div>
-
-        <label>
-          评论内容
-          <textarea v-model="content" rows="5" required></textarea>
-        </label>
-
-        <label v-if="formSettings.showCookiesOptIn">
-          <input v-model="cookiesConsent" type="checkbox" />
-          记住我的昵称、邮箱和网址信息
-        </label>
-
-        <label>
-          <input v-model="notifyByEmail" type="checkbox" />
-          有新回复时通过邮件提醒我（站点需启用邮件服务）
-        </label>
-
-        <div class="hstack gap-2">
-          <button type="submit" class="button" :disabled="submitting">
-            {{ submitting ? '提交中...' : '提交评论' }}
-          </button>
-          <button
-            v-if="parentCommentId"
-            type="button"
-            class="button ghost"
-            @click="parentCommentId = 0"
-          >
-            取消回复
-          </button>
-        </div>
-      </form>
     </div>
   </section>
 </template>

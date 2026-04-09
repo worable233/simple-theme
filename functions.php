@@ -610,9 +610,22 @@ function simple_theme_like_comment( WP_REST_Request $request ) {
 		return new WP_Error( 'invalid_comment', '评论不存在。', array( 'status' => 404 ) );
 	}
 
+	$user_id = get_current_user_id();
+	$agent   = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+	$ip      = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+	$identity_source = $user_id > 0 ? 'user:' . $user_id : 'guest:' . $ip . '|' . $agent;
+	$identity_hash   = md5( $identity_source );
+	$like_lock_key   = 'simple_theme_like_lock_' . $comment_id . '_' . $identity_hash;
+
+	if ( get_transient( $like_lock_key ) ) {
+		return new WP_Error( 'already_liked', '你已经点过赞了。', array( 'status' => 429 ) );
+	}
+
 	$current = (int) get_comment_meta( $comment_id, 'simple_theme_like_count', true );
 	$current++;
 	update_comment_meta( $comment_id, 'simple_theme_like_count', $current );
+	set_transient( $like_lock_key, 1, 5 * YEAR_IN_SECONDS );
 
 	return new WP_REST_Response(
 		array(

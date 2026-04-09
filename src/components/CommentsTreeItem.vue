@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { computed } from 'vue'
+﻿<script setup lang="ts">
+import { computed, ref } from 'vue'
 import { likeComment } from '@/lib/wordpress'
 import type { WordPressComment } from '@/types/wordpress'
 
@@ -15,9 +15,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'reply', id: number): void
   (e: 'liked', payload: { id: number; likes: number }): void
+  (e: 'like-error', message: string): void
 }>()
 
 const level = computed(() => props.depth || 0)
+const liking = ref(false)
+const liked = ref(localStorage.getItem(`simple_theme_comment_liked_${props.item.id}`) === '1')
 
 const relativeTime = computed(() => {
   const now = Date.now()
@@ -37,8 +40,22 @@ const relativeTime = computed(() => {
 })
 
 async function handleLike() {
-  const nextLikes = await likeComment(props.item.id)
-  emit('liked', { id: props.item.id, likes: nextLikes })
+  if (liked.value || liking.value) {
+    return
+  }
+
+  liking.value = true
+  try {
+    const nextLikes = await likeComment(props.item.id)
+    liked.value = true
+    localStorage.setItem(`simple_theme_comment_liked_${props.item.id}`, '1')
+    emit('liked', { id: props.item.id, likes: nextLikes })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '点赞失败，请稍后再试。'
+    emit('like-error', message)
+  } finally {
+    liking.value = false
+  }
 }
 </script>
 
@@ -57,7 +74,9 @@ async function handleLike() {
       <div class="wp-content" v-html="item.content.rendered"></div>
 
       <div class="hstack gap-2 comments-actions">
-        <button class="button ghost small" type="button" @click="handleLike">👍 {{ item.likes }}</button>
+        <button class="button ghost small" type="button" :disabled="liked || liking" @click="handleLike">
+          {{ liked ? '已赞' : '点赞' }} {{ item.likes }}
+        </button>
         <button class="button ghost small" type="button" @click="emit('reply', item.id)">回复</button>
       </div>
     </article>
@@ -70,6 +89,7 @@ async function handleLike() {
         :depth="level + 1"
         @reply="emit('reply', $event)"
         @liked="emit('liked', $event)"
+        @like-error="emit('like-error', $event)"
       />
     </ol>
   </li>

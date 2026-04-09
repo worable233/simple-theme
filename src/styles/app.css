@@ -276,6 +276,35 @@ section {
   min-height: 1.6em;
 }
 
+.article-hero {
+  min-height: 50dvh;
+}
+
+.article-hero--inset {
+  min-height: 50dvh;
+  margin: var(--space-4) 1rem var(--space-6);
+  border-radius: var(--radius-large);
+}
+
+.article-hero__inner {
+  min-height: inherit;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.article-hero__title {
+  align-items: center;
+}
+
+.article-hero__title h1 {
+  margin: 0;
+  max-width: min(90vw, 900px);
+  text-wrap: balance;
+}
+
 .intro {
   margin-top: var(--space-4);
 }
@@ -525,12 +554,12 @@ section {
 }
 
 .comments-panel {
-  padding: clamp(1rem, 2vw, 1.5rem);
+  padding: clamp(0.9rem, 1.6vw, 1.2rem);
 }
 
 .comments-list {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
 }
@@ -538,7 +567,7 @@ section {
 .comments-item {
   border: 1px solid var(--border);
   border-radius: var(--radius-medium);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
 }
 
 .comments-meta {
@@ -554,8 +583,39 @@ section {
   padding-top: var(--space-4);
 }
 
+.comments-form--compact {
+  border-top: 0;
+  padding-top: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.comments-form--compact h4 {
+  margin: 0;
+}
+
+.comments-form__title-row {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comments-form__footer {
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.comments-form__remember {
+  margin: 0;
+}
+
 .comments-form-row {
   --grid-cols: 12;
+  --grid-gap: 0.75rem;
+}
+
+.post-meta-row {
+  flex-wrap: wrap;
+  row-gap: 0.4rem;
 }
 
 .site-footer {
@@ -610,6 +670,11 @@ section {
   }
 
   .hero-cover--inset {
+    margin-inline: 0;
+    border-radius: 0;
+  }
+
+  .article-hero--inset {
     margin-inline: 0;
     border-radius: 0;
   }
